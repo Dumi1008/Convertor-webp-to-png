@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convertor WebP în PNG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles for file input */
+        .file-input-label {
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            background-color: #4f46e5;
+            color: white;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .file-input-label:hover {
+            background-color: #4338ca;
+        }
+        .file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl bg-white rounded-xl shadow-lg p-6 md:p-8">
+        
+        <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Convertor WebP în PNG</h1>
+            <p class="text-slate-600 mt-2">Încarcă o imagine în format .webp pentru a o converti în .png</p>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="text-center mb-6">
+            <label for="webp-upload" class="file-input-label">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Alege un fișier WebP
+            </label>
+            <input type="file" id="webp-upload" class="file-input" accept="image/webp">
+            <p id="file-name" class="text-sm text-slate-500 mt-3"></p>
+        </div>
+
+        <!-- Canvas for conversion (hidden) -->
+        <canvas id="conversion-canvas" class="hidden"></canvas>
+
+        <!-- Previews and Download Section -->
+        <div id="result-section" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Original Image Preview -->
+                <div class="text-center">
+                    <h3 class="text-lg font-semibold mb-2">Imagine Originală (WebP)</h3>
+                    <div class="bg-slate-50 p-2 rounded-lg border border-slate-200">
+                         <img id="webp-preview" src="#" alt="Previzualizare WebP" class="max-w-full h-auto rounded-md mx-auto">
+                    </div>
+                </div>
+                <!-- Converted Image Preview -->
+                <div class="text-center">
+                    <h3 class="text-lg font-semibold mb-2">Imagine Convertită (PNG)</h3>
+                    <div class="bg-slate-50 p-2 rounded-lg border border-slate-200">
+                        <img id="png-preview" src="#" alt="Previzualizare PNG" class="max-w-full h-auto rounded-md mx-auto">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download Button -->
+            <div class="text-center mt-8">
+                <a id="download-btn" href="#" download="imagine-convertita.png" class="inline-flex items-center justify-center px-8 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 text-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Descarcă PNG
+                </a>
+            </div>
+        </div>
+        
+        <!-- Error Message -->
+        <div id="error-message" class="hidden mt-4 text-center text-red-600 bg-red-100 p-3 rounded-lg"></div>
+
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const webpUpload = document.getElementById('webp-upload');
+        const fileNameDisplay = document.getElementById('file-name');
+        const resultSection = document.getElementById('result-section');
+        const webpPreview = document.getElementById('webp-preview');
+        const pngPreview = document.getElementById('png-preview');
+        const downloadBtn = document.getElementById('download-btn');
+        const canvas = document.getElementById('conversion-canvas');
+        const errorMessage = document.getElementById('error-message');
+        const ctx = canvas.getContext('2d');
+
+        // Listen for file selection
+        webpUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                return; // No file selected
+            }
+            
+            // Check if the file is a webp image
+            if (file.type !== 'image/webp') {
+                showError('Te rog să încarci un fișier în format WebP.');
+                resetUI();
+                return;
+            }
+
+            hideError();
+            fileNameDisplay.textContent = `Fișier selectat: ${file.name}`;
+
+            const reader = new FileReader();
+
+            // This event fires when the file is read
+            reader.onload = (e) => {
+                const img = new Image();
+                
+                // This event fires when the image data has been loaded
+                img.onload = () => {
+                    // Set canvas dimensions to match the image
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+
+                    // Draw the loaded image onto the canvas
+                    ctx.drawImage(img, 0, 0);
+
+                    // Convert the canvas content to a PNG data URL
+                    const pngUrl = canvas.toDataURL('image/png');
+
+                    // Update the UI with previews and the download link
+                    webpPreview.src = e.target.result; // Original WebP from FileReader
+                    pngPreview.src = pngUrl;
+                    downloadBtn.href = pngUrl;
+                    
+                    // Set a dynamic download filename
+                    const originalFilename = file.name.substring(0, file.name.lastIndexOf('.'));
+                    downloadBtn.download = `${originalFilename}.png`;
+
+                    // Make the results visible
+                    resultSection.classList.remove('hidden');
+                };
+
+                // This handles potential errors in loading the image data
+                img.onerror = () => {
+                    showError('Fișierul imagine este corupt sau nu a putut fi citit.');
+                    resetUI();
+                };
+                
+                // Set the image source to the file data URL
+                img.src = e.target.result;
+            };
+            
+            // This handles potential errors in reading the file itself
+            reader.onerror = () => {
+                showError('A apărut o eroare la citirea fișierului.');
+                resetUI();
+            };
+
+            // Read the file as a data URL
+            reader.readAsDataURL(file);
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+
+        function resetUI() {
+            fileNameDisplay.textContent = '';
+            resultSection.classList.add('hidden');
+            webpUpload.value = ''; // Reset file input
+        }
+    </script>
+
+</body>
+</html>
